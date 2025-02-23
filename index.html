@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Github Pages</title>
+    <style>
+        body {
+            font-family: 'Fira Sans', sans-serif;
+            background-color: #faf0e6;
+            color: #333;
+            text-align: center;
+            padding: 0;
+            margin: 0;
+        }
+        header {
+            background-color: #4682b4;
+            padding: 20px;
+            border-bottom: 5px solid #fff;
+        }
+        h1 {
+            color: #fff;
+        }
+        nav {
+            background-color: #708090;
+            padding: 10px;
+        }
+        nav a {
+            color: #fff;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: bold;
+        }
+        section {
+            padding: 20px;
+        }
+        footer {
+            background-color: #4682b4;
+            padding: 10px;
+            position: fixed;
+            width: 100%;
+            bottom: 0;
+            left: 0;
+            border-top: 5px solid #fff;
+        }
+        #d3-demo {
+            margin-top: 20px;
+        }
+    </style>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Welcome to Github Pages!</h1>
+    </header>
+    <nav>
+        <a href="#home">Home</a>
+        <a href="#about">About</a>
+        <a href="#blog">Blog</a>
+        <a href="#contact">Contact</a>
+    </nav>
+    <section id="home">
+        <h2>D3</h2>
+        <p>Home section</p>
+        <section id="home">
+            <h2>Demos</h2>
+            <p>Demos</p>
+            <div id="d3-demo"></div>
+        </section>
+        <script>
+            // Create a smooth line chart using D3.js
+            const data = [10, 20, 30, 40, 50];
+            const width = 500;
+            const height = 300;
+            const margin = { top: 20, right: 30, bottom: 30, left: 40 };
+
+            const x = d3.scaleLinear()
+                .domain([0, data.length - 1])
+                .range([margin.left, width - margin.right]);
+
+            const y = d3.scaleLinear()
+                .domain([0, d3.max(data)])
+                .nice()
+                .range([height - margin.bottom, margin.top]);
+
+            const line = d3.line()
+                .curve(d3.curveBasis)
+                .x((d, i) => x(i))
+                .y(d => y(d));
+
+            const svg = d3.select("#d3-demo")
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            svg.append("g")
+                .attr("transform", `translate(0,${height - margin.bottom})`)
+                .call(d3.axisBottom(x).ticks(data.length).tickFormat(i => i + 1).tickSizeOuter(0));
+
+            svg.append("g")
+                .attr("transform", `translate(${margin.left},0)`)
+                .call(d3.axisLeft(y));
+
+            svg.append("path")
+                .datum(data)
+                .attr("fill", "none")
+                .attr("stroke", "steelblue")
+                .attr("stroke-width", 1.5)
+                .attr("d", line);
+
+            svg.selectAll(".dot")
+                .data(data)
+                .enter().append("circle")
+                .attr("class", "dot")
+                .attr("cx", (d, i) => x(i))
+                .attr("cy", d => y(d))
+                .attr("r", 3)
+                .attr("fill", "steelblue");
+        </script>
+    </section>
+    <section id="about">
+        <h2>About</h2>
+        <p>About section</p>
+    </section>
+    <section id="blog">
+        <h2>Blog</h2>
+        <p>Blog section</p>
+    </section>
+    <section id="contact">
+        <h2>Contact</h2>
+        <p>Contact section</p>
+    </section>
+    <footer>
+        <p>&copy; 2025. All rights reserved.</p>
+    </footer>
+</body>
+</html>
+
