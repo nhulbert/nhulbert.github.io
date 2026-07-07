@@ -5,6 +5,52 @@
   const progressFill = document.getElementById('progress-fill');
   const controlsEl = document.getElementById('controls');
 
+  // ---------- steam from cursor ----------
+  const steamStyle = document.createElement('style');
+  steamStyle.textContent = `
+    .steam-particle {
+      position: fixed;
+      pointer-events: none;
+      background: radial-gradient(circle, rgba(210,210,235,0.7) 0%, rgba(160,160,180,0.35) 50%, transparent 100%);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      margin-left: -20px;
+      margin-top: -20px;
+      opacity: 0;
+      animation: steamRise 2s ease-out forwards;
+      z-index: 9999;
+    }
+    @keyframes steamRise {
+      0%   { opacity: 0.8; transform: translateY(0) scale(0.5); }
+      30%  { opacity: 0.5; transform: translateY(-24px) scale(1.2); }
+      100% { opacity: 0;   transform: translateY(-80px) scale(2.2); }
+    }
+  `;
+  document.head.appendChild(steamStyle);
+
+  let lastSteam = 0;
+  // three chimney offsets relative to cursor hotspot (64x112 on a 128px image)
+  const chimneys = [
+    { dx: -20, dy: -80 },   // left chimney
+    { dx:  0,  dy: -80 },   // center chimney
+    { dx:  20, dy: -80 },   // right chimney
+  ];
+  document.addEventListener('mousemove', e => {
+    const now = Date.now();
+    if (now - lastSteam < 120) return;
+    lastSteam = now;
+
+    for (const ch of chimneys) {
+      const p = document.createElement('div');
+      p.className = 'steam-particle';
+      p.style.left = (e.clientX + ch.dx) + 'px';
+      p.style.top = (e.clientY + ch.dy) + 'px';
+      document.body.appendChild(p);
+      p.addEventListener('animationend', () => p.remove());
+    }
+  });
+
   // ---------- movie data ----------
   // Edit movies.json for the source-of-truth, then copy into this array.
   // Each entry: { title: "...", thumbnail: "thumbnails/...png" } or just { title: "..." }
