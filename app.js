@@ -50,10 +50,50 @@
       pairs.push([i, j]);
     }
   }
-  // Fisher-Yates shuffle
-  for (let k = pairs.length - 1; k > 0; k--) {
-    const r = Math.floor(Math.random() * (k + 1));
-    [pairs[k], pairs[r]] = [pairs[r], pairs[k]];
+
+  // ---------- persistence ----------
+  const STORAGE_VERSION = 1;
+
+  function saveState() {
+    const data = {
+      v: STORAGE_VERSION,
+      pairs,
+      tally,
+      voterCount,
+      currentVoterResults,
+      currentPairIdx,
+      votingInProgress,
+    };
+    localStorage.setItem('condorcet', JSON.stringify(data));
+  }
+
+  function loadState() {
+    const raw = localStorage.getItem('condorcet');
+    if (!raw) return false;
+    try {
+      const data = JSON.parse(raw);
+      if (data.v !== STORAGE_VERSION) return false;
+      // restore arrays
+      pairs.splice(0, pairs.length, ...data.pairs.map(p => [...p]));
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          tally[i][j] = data.tally[i][j];
+        }
+      }
+      if (data.currentVoterResults) {
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) {
+            currentVoterResults[i][j] = data.currentVoterResults[i][j];
+          }
+        }
+      }
+      voterCount = data.voterCount;
+      currentPairIdx = data.currentPairIdx;
+      votingInProgress = data.votingInProgress;
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // ---------- state ----------
@@ -78,6 +118,11 @@
     currentVoterResults = Array.from({ length: n }, () => Array(n).fill(null));
     currentPairIdx = 0;
     votingInProgress = false;
+      // Fisher-Yates shuffle
+    for (let k = pairs.length - 1; k > 0; k--) {
+      const r = Math.floor(Math.random() * (k + 1));
+      [pairs[k], pairs[r]] = [pairs[r], pairs[k]];
+    }
   }
 
   // ---------- start a new voter ----------
@@ -87,6 +132,7 @@
     votingInProgress = true;
     hideControls();
     resultsEl.style.display = 'none';
+    saveState();
     renderMatchup();
   }
 
@@ -123,6 +169,7 @@
         if (winner === 'a') currentVoterResults[i][j] = true;
         else currentVoterResults[i][j] = false;
         currentPairIdx++;
+        saveState();
         renderMatchup();
       });
     });
@@ -154,6 +201,7 @@
         else if (pref === false) tally[j][i]++;
       }
     }
+    saveState();
 
     showControls(`
       <p style="margin:10px 0">${voterCount} ${voterCount === 1 ? 'voter has' : 'voters have'} voted so far.</p>
@@ -221,12 +269,11 @@
     }
     html += `</tbody></table>`;
 
-    html += `<button class="btn-reset" onclick="location.reload()">Start over</button>`;
     html += `<button class="btn-reset" id="btn-back-vote" style="margin-left:10px">Add more voters</button>`;
 
     resultsEl.innerHTML = html;
     resultsEl.style.display = 'block';
-
+    
     document.getElementById('btn-back-vote').addEventListener('click', () => {
       resultsEl.style.display = 'none';
       showControls(`
@@ -240,5 +287,25 @@
   }
 
   // ---------- init ----------
-  startVoter();
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    localStorage.removeItem('condorcet');
+    location.reload();
+  });
+  if (loadState()) {
+    if (votingInProgress) {
+      renderMatchup();
+    } else {
+      renderMatchup();
+      resultsEl.style.display = 'none';
+      showControls(`
+        <p style="margin:10px 0">${voterCount} ${voterCount === 1 ? 'voter has' : 'voters have'} voted so far.</p>
+        <button class="btn-reset" id="btn-add-voter">Add another voter</button>
+        <button class="btn-reset" id="btn-view-results" style="margin-left:10px">View results</button>
+      `);
+      document.getElementById('btn-add-voter').addEventListener('click', startVoter);
+      document.getElementById('btn-view-results').addEventListener('click', showResults);
+    }
+  } else {
+    startVoter();
+  }
 })();
