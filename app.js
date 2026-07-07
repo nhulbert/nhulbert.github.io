@@ -50,6 +50,11 @@
       pairs.push([i, j]);
     }
   }
+  // Fisher-Yates shuffle
+  for (let k = pairs.length - 1; k > 0; k--) {
+    const r = Math.floor(Math.random() * (k + 1));
+    [pairs[k], pairs[r]] = [pairs[r], pairs[k]];
+  }
 
   // ---------- state ----------
   const tally = Array.from({ length: n }, () => Array(n).fill(0));
