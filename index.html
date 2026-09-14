@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Thrill Digger — Skyward Sword (fan recreation)</title>
+<style>
+  :root {
+    --ink: #f4ead8;
+    --muted: #b9a98f;
+    --gold: #ffd24a;
+    --panel: rgba(24, 18, 12, 0.82);
+    --panel-solid: #1c1610;
+    --line: rgba(255, 220, 150, 0.22);
+    --g1: #3fa34d;
+    --g2: #2f6fd0;
+    --g3: #c0392b;
+    --g4: #aeb6bd;
+    --g5: #e6b800;
+    --rup: #7a4bb5;
+    --bmb: #2b2b2b;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #0b0906;
+    color: var(--ink);
+    font: 15px/1.5 "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden;
+  }
+  #app { position: fixed; inset: 0; }
+  canvas { display: block; }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    position: fixed; inset: 0; pointer-events: none;
+    font-family: "Segoe UI", Roboto, sans-serif;
+    text-shadow: 0 2px 4px rgba(0,0,0,.8);
+  }
+  .panel {
+    position: absolute;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 14px;
+    backdrop-filter: blur(2px);
+  }
+  #score-panel { top: 16px; left: 16px; min-width: 168px; }
+  #score-panel .label { color: var(--muted); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+  #score { font-size: 34px; font-weight: 700; color: var(--gold); line-height: 1.05; }
+  #target { font-size: 12.5px; color: var(--muted); }
+  #target b { color: var(--ink); }
+
+  #timer-panel { top: 16px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 150px; }
+  #timer { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #timer.warn { color: #ff6b57; animation: pulse .8s infinite alternate; }
+  @keyframes pulse { from { opacity: 1; } to { opacity: .45; } }
+  #stage-label { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--muted); }
+
+  #rupee-panel { bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; gap: 16px; }
+  .rc { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+  .gem { width: 16px; height: 22px; clip-path: polygon(50% 0, 100% 38%, 78% 100%, 22% 100%, 0 38%); border-radius: 2px; }
+  .rc b { font-variant-numeric: tabular-nums; min-width: 18px; display: inline-block; }
+
+  #hint {
+    position: absolute; bottom: 74px; left: 50%; transform: translateX(-50%);
+    font-size: 13px; color: var(--muted); text-align: center; width: 100%;
+  }
+
+  #toast {
+    position: absolute; top: 104px; left: 50%; transform: translateX(-50%);
+    font-size: 22px; font-weight: 700; color: var(--gold);
+    opacity: 0; transition: opacity .25s;
+    text-align: center;
+  }
+  #toast.show { opacity: 1; }
+
+  #banner {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none;
+  }
+  #banner .big { font-size: 68px; font-weight: 800; color: var(--gold); }
+  #banner .sub { font-size: 16px; color: var(--ink); }
+
+  /* ---------- Menu / result ---------- */
+  #overlay {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(900px 500px at 50% 30%, #2a2116 0%, #0b0906 70%);
+    z-index: 20;
+  }
+  #overlay.hidden { display: none; }
+  .card {
+    width: min(560px, 92vw);
+    background: linear-gradient(180deg, #2c2317 0%, #1c1610 100%);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 26px 28px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.6);
+    text-align: center;
+  }
+  .card h1 { margin: 0 0 2px; font-size: 30px; letter-spacing: .5px; }
+  .card .tag { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .diffs { display: flex; gap: 10px; justify-content: center; margin: 18px 0 22px; }
+  .diff {
+    flex: 1; cursor: pointer; border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 8px; background: #241c13; color: var(--ink); transition: .12s;
+  }
+  .diff:hover { transform: translateY(-2px); }
+  .diff.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; background: #33271a; }
+  .diff .n { font-weight: 700; font-size: 17px; }
+  .diff .d { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .diff .fee { font-size: 12px; color: var(--gold); margin-top: 3px; }
+  h2 { margin: 0 0 6px; }
+  .result-score { font-size: 52px; font-weight: 800; color: var(--gold); line-height: 1; }
+  .result-msg { color: var(--muted); margin: 8px 0 16px; }
+  .breakdown { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 18px; margin: 14px 0 20px; }
+  .breakdown .rc { font-size: 14px; }
+  button.primary {
+    pointer-events: auto; cursor: pointer; font: inherit; font-weight: 700;
+    padding: 12px 26px; border-radius: 999px; border: 1px solid #ffcf5a;
+    background: linear-gradient(180deg, #ffd75e, #e0a516); color: #2a1d05;
+  }
+  button.primary:hover { filter: brightness(1.08); }
+  button.ghost {
+    pointer-events: auto; cursor: pointer; font: inherit; margin-left: 10px;
+    padding: 12px 20px; border-radius: 999px; background: transparent;
+    color: var(--muted); border: 1px solid var(--line);
+  }
+  .credits { margin-top: 18px; font-size: 11px; color: #7d6f5a; line-height: 1.5; }
+  .spinner { color: var(--muted); }
+
+  /* ---------- Sidebar (modes, toggles, 2D board, analysis) ---------- */
+  #sidebar {
+    position: fixed; top: 12px; right: 12px; z-index: 30;
+    width: 320px; max-height: calc(100vh - 24px);
+    display: flex; flex-direction: column; gap: 10px;
+    overflow-y: auto; overflow-x: hidden;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 10px;
+    backdrop-filter: blur(3px);
+    box-shadow: 0 18px 46px rgba(0,0,0,.55);
+    transition: width .15s ease;
+  }
+  body.mode-analysis #sidebar { width: 480px; }
+  #sidebar.collapsed .sb-section,
+  #sidebar.collapsed #board-panel,
+  #sidebar.collapsed #dist-detail { display: none; }
+  #sidebar.collapsed { width: 210px; }
+
+  .sb-head { display: flex; align-items: center; gap: 8px; }
+  .modes { display: flex; gap: 6px; flex: 1; }
+  .modes button {
+    flex: 1; cursor: pointer; font: inherit; font-weight: 700; font-size: 13px;
+    padding: 7px 8px; border-radius: 8px; color: var(--muted);
+    background: #241c13; border: 1px solid var(--line);
+  }
+  .modes button.on { background: linear-gradient(180deg,#ffd75e,#e0a516); color: #2a1d05; border-color: #ffcf5a; }
+  #sb-toggle {
+    cursor: pointer; font: inherit; color: var(--muted); background: #241c13;
+    border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; line-height: 1;
+  }
+  .sb-section { border-top: 1px solid var(--line); padding-top: 9px; }
+  .sb-section.hidden { display: none; }
+  #play-tools { display: flex; flex-direction: column; gap: 6px; }
+  .chk { display: flex; align-items: center; gap: 8px; font-size: 13.5px; cursor: pointer; }
+  .chk input { width: 16px; height: 16px; accent-color: var(--gold); }
+  .muted { color: var(--muted); font-size: 12px; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .tabs button {
+    flex: 1; cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600;
+    padding: 6px; border-radius: 8px; background: #241c13; color: var(--muted); border: 1px solid var(--line);
+  }
+  .tabs button.on { background: #3a2d1e; color: var(--ink); border-color: var(--gold); }
+  .variants { display: flex; gap: 6px; margin-bottom: 8px; }
+  .variants button {
+    flex: 1; cursor: pointer; font: inherit; font-size: 12px; padding: 5px;
+    border-radius: 7px; background: #241c13; color: var(--muted); border: 1px solid var(--line);
+  }
+  .variants button.on { background: #3a2d1e; color: var(--ink); border-color: var(--gold); }
+
+  .palette { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .palette button {
+    cursor: pointer; font: inherit; font-size: 12px; font-weight: 600;
+    padding: 5px 8px; border-radius: 7px; color: #fff;
+    border: 1px solid rgba(255,255,255,.25);
+    display: flex; align-items: center; gap: 5px;
+  }
+  .palette button.on { outline: 3px solid var(--gold); outline-offset: 1px; }
+  .palette .sw { width: 11px; height: 11px; border-radius: 3px; border: 1px solid rgba(0,0,0,.4); }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .row button {
+    cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 600;
+    padding: 6px 10px; border-radius: 8px; background: #3c322a; color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .row button:hover { background: #4a3e34; }
+  .row button:disabled { opacity: .4; cursor: not-allowed; }
+  .status { font-size: 12.5px; line-height: 1.45; min-height: 18px; }
+  .status.ok { color: #8fd18f; }
+  .status.bad { color: #ff8a75; }
+
+  #board-panel { border-top: 1px solid var(--line); padding-top: 9px; }
+  .board-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  #board-title { font-size: 13px; font-weight: 700; }
+  #board-sub { font-size: 11px; }
+  .board2d { display: grid; gap: 4px; grid-template-columns: repeat(var(--cols, 5), 1fr); }
+  .bcell {
+    position: relative; aspect-ratio: 1 / 1; border-radius: 6px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: #fff;
+    background: linear-gradient(145deg, #6e6950, #5c5740);
+    border: 1px solid rgba(0,0,0,.4);
+    text-shadow: 0 1px 1px rgba(0,0,0,.5);
+  }
+  body.mode-analysis .bcell { font-size: 15px; }
+  .bcell .lbl { position: relative; z-index: 2; }
+  .bcell .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 7px; display: flex; z-index: 3; }
+  .bcell .bar i { height: 100%; }
+  .bcell.dim { opacity: .5; }
+  .bcell.t1 { background: var(--g1); }
+  .bcell.t2 { background: var(--g2); }
+  .bcell.t3 { background: var(--g3); }
+  .bcell.t4 { background: var(--g4); color: #1b1613; text-shadow: none; }
+  .bcell.t5 { background: var(--g5); color: #1b1613; text-shadow: none; }
+  .bcell.rup { background: radial-gradient(circle at 35% 30%, #a06fe0, var(--rup)); }
+  .bcell.bmb { background: radial-gradient(circle at 35% 30%, #555, var(--bmb)); color: #ffd7d7; }
+  .bcell.dug { box-shadow: inset 0 0 0 2px rgba(255,255,255,.5); }
+  .bcell.rec { outline: 3px solid var(--gold); outline-offset: -2px; z-index: 4; }
+  .bcell.rec::after { content: "\2605"; position: absolute; top: 0; right: 3px; font-size: 10px; color: var(--gold); z-index: 5; }
+  .bcell.clickable { cursor: pointer; }
+  .bcell.clickable:hover { filter: brightness(1.18); }
+  .bcell.invalid { box-shadow: inset 0 0 0 2px #ff5c5c; }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 7px; font-size: 10.5px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  #dist-detail { font-size: 12px; }
+  #dist-detail .dt-head { font-weight: 700; margin-bottom: 5px; }
+  #dist-detail table { width: 100%; border-collapse: collapse; }
+  #dist-detail td { padding: 2px 3px; border-bottom: 1px solid rgba(255,220,150,.1); }
+  #dist-detail td.sw { width: 12px; }
+  #dist-detail td.ct { text-align: right; font-variant-numeric: tabular-nums; }
+  #dist-detail td.pc { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #dist-detail .sw i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+</style>
+</head>
+<body class="mode-play">
+<div id="app"></div>
+
+<div id="hud">
+  <div class="panel" id="score-panel">
+    <div class="label">Score</div>
+    <div id="score">0</div>
+    <div id="target">Target <b>100</b></div>
+  </div>
+
+  <div class="panel" id="timer-panel">
+    <div id="stage-label">Thrill Digger</div>
+    <div id="timer">5:00</div>
+  </div>
+
+  <div class="panel" id="rupee-panel">
+    <div class="rc"><span class="gem" style="background:#3fa34d"></span>×<b id="c-green">0</b></div>
+    <div class="rc"><span class="gem" style="background:#2f6fd0"></span>×<b id="c-blue">0</b></div>
+    <div class="rc"><span class="gem" style="background:#c0392b"></span>×<b id="c-red">0</b></div>
+    <div class="rc"><span class="gem" style="background:#aeb6bd"></span>×<b id="c-silver">0</b></div>
+    <div class="rc"><span class="gem" style="background:#e6b800"></span>×<b id="c-gold">0</b></div>
+    <div class="rc"><span class="gem" style="background:#7a4bb5"></span>×<b id="c-rupoor">0</b></div>
+  </div>
+
+  <div id="hint">Move <b>WASD</b>/arrows · <b>Space</b> or click to dig · drag to orbit · scroll to zoom</div>
+  <div id="toast"></div>
+  <div id="banner"></div>
+</div>
+
+<aside id="sidebar">
+  <div class="sb-head">
+    <div class="modes">
+      <button id="mode-play" class="on">Play</button>
+      <button id="mode-analysis">Analysis</button>
+    </div>
+    <button id="sb-toggle" title="Collapse / expand">&#9666;</button>
+  </div>
+
+  <div class="sb-section" id="play-tools">
+    <label class="chk"><input type="checkbox" id="opt-hidden"> <span>Hidden state</span></label>
+    <label class="chk"><input type="checkbox" id="opt-agent"> <span>Agent action</span></label>
+    <label class="chk"><input type="checkbox" id="opt-dist"> <span>Distributions</span></label>
+    <div class="muted" id="agent-summary"></div>
+  </div>
+
+  <div class="sb-section hidden" id="analysis-tools">
+    <div class="tabs">
+      <button data-sub="hidden" class="on">Hidden state</button>
+      <button data-sub="observable">Observable state</button>
+    </div>
+    <div class="variants" id="analysis-variants"></div>
+    <div class="palette" id="palette"></div>
+    <div class="row" id="analysis-actions"></div>
+    <div class="status" id="analysis-status"></div>
+  </div>
+
+  <div class="sb-section" id="board-panel">
+    <div class="board-head">
+      <span id="board-title">Board</span>
+      <span class="muted" id="board-sub"></span>
+    </div>
+    <div class="board2d" id="board-grid"></div>
+    <div class="legend" id="board-legend"></div>
+  </div>
+
+  <div class="sb-section" id="dist-detail"></div>
+</aside>
+
+<div id="overlay">
+  <div class="card" id="card">
+    <h1>Thrill Digger</h1>
+    <div class="tag">A browser recreation of the Skyward Sword minigame, built from the decompilation &amp; original game assets.</div>
+    <div id="card-body">
+      <div class="spinner">Loading assets…</div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three.module.js"
+  }
+}
+</script>
+<script type="module" src="./game.js"></script>
+</body>
+</html>
