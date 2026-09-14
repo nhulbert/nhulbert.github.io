@@ -251,6 +251,17 @@ class ThrillDigger {
     this.dragging = false;
     this.dragMoved = 0;
     this.lastPointer = { x: 0, y: 0 };
+    this.pointerType = 'mouse';
+    this.pointers = new Map();
+    this.pinching = false;
+    this.pinchStartDist = 0;
+    this.pinchStartRadius = 0;
+    this.camAnchor = { x: 0, y: 0 };
+
+    // responsive / phone layout
+    this.mqPhone = window.matchMedia('(max-width: 760px)');
+    this.phone = this.mqPhone.matches;
+    document.body.classList.toggle('phone', this.phone);
 
     // modes / analysis
     this.mode = 'play';
@@ -416,10 +427,7 @@ class ThrillDigger {
     }
 
     // camera framing
-    const width = this.variant.cols * spacing;
-    const depth = this.variant.rows * spacing;
-    this.camState.radius = Math.max(width, depth) * 1.35 + 900;
-    this.updateCamera(true);
+    this.fitCamera(true);
 
     if (state) {
       for (let i = 0; i < this.board.numHoles; i++) {
@@ -434,7 +442,10 @@ class ThrillDigger {
     this.updateHUD();
     this.showOverlay(false);
     this.hideBanner();
-    this.setHint('Move <b>WASD</b>/arrows · <b>Space</b> or click to dig · drag to orbit · scroll to zoom');
+    const touch = matchMedia('(pointer: coarse)').matches;
+    this.setHint(touch
+      ? 'Drag to orbit &middot; pinch to zoom &middot; tap a mound to dig'
+      : 'Move <b>WASD</b>/arrows &middot; <b>Space</b> or click to dig &middot; drag to orbit &middot; scroll to zoom');
     this.toast('', 0);
     this.refresh();
   }
@@ -501,7 +512,10 @@ class ThrillDigger {
     this.ui.sbToggle.onclick = () => {
       const collapsed = this.ui.sidebar.classList.toggle('collapsed');
       this.ui.sbToggle.textContent = collapsed ? '\u25B8' : '\u25C2';
+      this.fitCamera();
     };
+    const fitBtn = $('view-fit');
+    if (fitBtn) fitBtn.onclick = () => this.resetView();
     this.ui.optHidden.onchange = () => { this.show.hidden = this.ui.optHidden.checked; this.refresh(); };
     this.ui.optAgent.onchange = () => { this.show.agent = this.ui.optAgent.checked; this.refresh(); };
     this.ui.optDist.onchange = () => { this.show.dist = this.ui.optDist.checked; this.refresh(); };
@@ -1265,39 +1279,95 @@ class ThrillDigger {
       this.camera.aspect = innerWidth / innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(innerWidth, innerHeight);
+      this.fitCamera();
     });
 
+    const applyPhone = () => {
+      this.phone = this.mqPhone.matches;
+      document.body.classList.toggle('phone', this.phone);
+      this.fitCamera();
+    };
+    if (this.mqPhone.addEventListener) this.mqPhone.addEventListener('change', applyPhone);
+    else if (this.mqPhone.addListener) this.mqPhone.addListener(applyPhone);
+
     const el = this.renderer.domElement;
-    el.addEventListener('pointerdown', (e) => {
-      if (this.mode !== 'play') return;
-      this.dragging = true;
-      this.dragMoved = 0;
-      this.lastPointer = { x: e.clientX, y: e.clientY };
-    });
-    addEventListener('pointerup', (e) => {
-      if (this.mode === 'play' && this.dragging && this.dragMoved < 6) {
-        const cell = this.screenToCell();
-        if (cell && this.phase === 'play') {
-          this.selected = { row: cell.row, col: cell.col };
-          this.dig();
-        }
-      }
-      this.dragging = false;
-    });
-    addEventListener('pointermove', (e) => {
-      if (this.mode !== 'play') return;
-      if (e.target && e.target.closest && e.target.closest('#sidebar')) return;
+    el.style.touchAction = 'none';
+
+    const ptr = (e) => ({ x: e.clientX, y: e.clientY });
+    const trackPointer = (e) => {
       this.pointer.x = (e.clientX / innerWidth) * 2 - 1;
       this.pointer.y = -(e.clientY / innerHeight) * 2 + 1;
+    };
+
+    el.addEventListener('pointerdown', (e) => {
+      if (this.mode !== 'play') return;
+      e.preventDefault();
+      if (el.setPointerCapture) { try { el.setPointerCapture(e.pointerId); } catch (_) {} }
+      this.pointers.set(e.pointerId, ptr(e));
+      this.pointerType = e.pointerType;
+      trackPointer(e);
+
+      if (this.pointers.size === 1) {
+        this.dragging = true;
+        this.dragMoved = 0;
+        this.lastPointer = ptr(e);
+      } else if (this.pointers.size === 2) {
+        this.dragging = false;
+        this.pinching = true;
+        const [a, b] = [...this.pointers.values()];
+        this.pinchStartDist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        this.pinchStartRadius = this.camState.radius;
+      }
+    });
+
+    const endPointer = (e) => {
+      if (!this.pointers.has(e.pointerId)) return;
+      const wasSingle = this.pointers.size === 1;
+      const tapOK = wasSingle && this.dragging && !this.pinching
+        && this.dragMoved < 6 && this.phase === 'play';
+      this.pointers.delete(e.pointerId);
+
+      if (this.pointers.size === 0) {
+        if (tapOK) {
+          const cell = this.screenToCell();
+          if (cell) { this.selected = { row: cell.row, col: cell.col }; this.dig(); }
+        }
+        this.dragging = false;
+        this.pinching = false;
+      } else if (this.pointers.size === 1) {
+        this.pinching = false;
+        this.dragging = true;
+        this.dragMoved = 999;
+        this.lastPointer = [...this.pointers.values()][0];
+      }
+    };
+    addEventListener('pointerup', endPointer);
+    addEventListener('pointercancel', endPointer);
+
+    addEventListener('pointermove', (e) => {
+      if (this.mode !== 'play') return;
+      if (this.pointers.has(e.pointerId)) this.pointers.set(e.pointerId, ptr(e));
+      if (e.target && e.target.closest && e.target.closest('#sidebar')) return;
+      trackPointer(e);
+
+      if (this.pinching && this.pointers.size >= 2) {
+        const [a, b] = [...this.pointers.values()];
+        const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        this.camState.radius = Math.min(14000,
+          Math.max(760, this.pinchStartRadius * (this.pinchStartDist / d)));
+        this.updateCamera();
+        return;
+      }
+
       if (this.dragging) {
         const dx = e.clientX - this.lastPointer.x;
         const dy = e.clientY - this.lastPointer.y;
         this.dragMoved += Math.abs(dx) + Math.abs(dy);
-        this.lastPointer = { x: e.clientX, y: e.clientY };
+        this.lastPointer = ptr(e);
         this.camState.azimuth -= dx * 0.005;
         this.camState.polar = Math.min(1.45, Math.max(0.28, this.camState.polar - dy * 0.004));
         this.updateCamera();
-      } else if (this.phase === 'play') {
+      } else if (this.phase === 'play' && this.pointerType !== 'touch') {
         const cell = this.screenToCell();
         if (cell) { this.selected = { row: cell.row, col: cell.col }; }
       }
@@ -1305,7 +1375,7 @@ class ThrillDigger {
     el.addEventListener('wheel', (e) => {
       if (this.mode !== 'play') return;
       e.preventDefault();
-      this.camState.radius = Math.min(6000, Math.max(700, this.camState.radius + e.deltaY * 1.6));
+      this.camState.radius = Math.min(14000, Math.max(760, this.camState.radius + e.deltaY * 1.6));
       this.updateCamera();
     }, { passive: false });
 
@@ -1334,7 +1404,21 @@ class ThrillDigger {
     const y = radius * Math.cos(polar);
     const z = radius * Math.sin(polar) * Math.cos(azimuth);
     const target = new THREE.Vector3(0, 40, 0);
-    const desired = new THREE.Vector3(x, y, z).add(target);
+    const base = new THREE.Vector3(x, y, z).add(target);
+
+    // Screen-space anchoring keeps the board inside the area not covered by the UI.
+    const tanV = Math.tan((this.camera.fov * Math.PI / 180) / 2);
+    const tanH = tanV * this.camera.aspect;
+    const offU = -this.camAnchor.x * radius * tanH;
+    const offV = -this.camAnchor.y * radius * tanV;
+    const view = target.clone().sub(base).normalize();
+    const right = new THREE.Vector3().crossVectors(view, new THREE.Vector3(0, 1, 0));
+    if (right.lengthSq() < 1e-6) right.set(1, 0, 0); else right.normalize();
+    const up = new THREE.Vector3().crossVectors(right, view).normalize();
+    const offset = right.multiplyScalar(offU).add(up.multiplyScalar(offV));
+
+    const desired = base.add(offset);
+    const lookTarget = target.add(offset);
     if (instant) this.camera.position.copy(desired);
     else this.camera.position.lerp(desired, 0.35);
     if (this.shake > 0) {
@@ -1343,7 +1427,67 @@ class ThrillDigger {
       this.camera.position.y += (Math.random() - 0.5) * s;
       this.camera.position.z += (Math.random() - 0.5) * s;
     }
-    this.camera.lookAt(target);
+    this.camera.lookAt(lookTarget);
+
+    // Push the fog back as the camera pulls away so distant boards stay legible.
+    if (this.scene.fog) {
+      this.scene.fog.near = Math.max(3200, radius * 1.1);
+      this.scene.fog.far = this.scene.fog.near + Math.max(6000, radius * 1.2);
+    }
+  }
+
+  /** Frame the whole board in the part of the screen the UI does not cover. */
+  fitCamera(instant = false) {
+    const { rows, cols } = this.variant;
+    const margin = 220;
+    const halfW = ((cols - 1) * HOLE_SPACING) / 2 + margin;
+    const halfD = ((rows - 1) * HOLE_SPACING) / 2 + margin;
+
+    const vw = Math.max(1, innerWidth);
+    const vh = Math.max(1, innerHeight);
+    let fracX = 1, fracY = 1;
+    let anchorX = 0, anchorY = 0;
+
+    const sb = this.ui && this.ui.sidebar;
+    const sbVisible = sb && sb.getClientRects().length > 0 && !sb.classList.contains('collapsed');
+    if (sbVisible) {
+      const r = sb.getBoundingClientRect();
+      if (this.phone) {
+        const usableH = Math.max(140, r.top - 10);
+        fracY = Math.min(1, usableH / vh);
+        anchorY = 1 - fracY;
+      } else {
+        const usableW = Math.max(180, r.left - 10);
+        fracX = Math.min(1, usableW / vw);
+        anchorX = fracX - 1;
+      }
+    }
+
+    // Board half-extents as seen through the current orbit, so the fit is
+    // tight without clipping when the view is rotated.
+    const ca = Math.abs(Math.cos(this.camState.azimuth));
+    const sa = Math.abs(Math.sin(this.camState.azimuth));
+    const extX = halfW * ca + halfD * sa;
+    const extZ = halfW * sa + halfD * ca;
+    const foreshorten = Math.max(0.35, Math.cos(this.camState.polar));
+
+    const tanV = Math.tan((this.camera.fov * Math.PI / 180) / 2);
+    const tanH = tanV * this.camera.aspect;
+    // The near edge of the board is closer to the camera, so it projects larger
+    // than the board centre; add its depth extent to the required distance.
+    const depth = extZ * foreshorten;
+    const distH = extX / (tanH * fracX) + depth;
+    const distV = depth / (tanV * fracY) + depth;
+    this.camState.radius = Math.min(14000, Math.max(760, Math.max(distH, distV) * 1.05));
+    this.camAnchor.x = anchorX;
+    this.camAnchor.y = anchorY;
+    this.updateCamera(instant);
+  }
+
+  resetView() {
+    this.camState.azimuth = 0;
+    this.camState.polar = 0.82;
+    this.fitCamera();
   }
 
   /* ---------------- loop ---------------- */
@@ -1449,7 +1593,11 @@ class ThrillDigger {
   }
 
   setHint(html) { document.getElementById('hint').innerHTML = html; }
-  showOverlay(v) { document.getElementById('overlay').classList.toggle('hidden', !v); }
+  showOverlay(v) {
+    document.getElementById('overlay').classList.toggle('hidden', !v);
+    document.body.classList.toggle('overlay-open', v);
+    if (!v) this.fitCamera();
+  }
 
   showResult() {
     const win = this.score >= this.variant.target;

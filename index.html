@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Thrill Digger — Skyward Sword (fan recreation)</title>
 <style>
   :root {
@@ -244,6 +244,66 @@
   #dist-detail td.ct { text-align: right; font-variant-numeric: tabular-nums; }
   #dist-detail td.pc { text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
   #dist-detail .sw i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  /* ---------- Touch / phone layout ---------- */
+  html, body { overscroll-behavior: none; }
+  body { touch-action: manipulation; }
+  #app, #app canvas {
+    touch-action: none;
+    -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+  }
+  #view-fit {
+    position: absolute; left: 16px; bottom: 16px; z-index: 5;
+    pointer-events: auto; cursor: pointer;
+    width: 44px; height: 44px; border-radius: 50%;
+    font-size: 20px; line-height: 1;
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); backdrop-filter: blur(2px);
+  }
+  #view-fit:active { transform: scale(.94); }
+
+  body.phone .diffs { flex-direction: column; }
+  body.phone #hint { display: none; }
+  body.phone.overlay-open #sidebar { display: none; }
+
+  body.phone #view-fit {
+    left: auto; right: 10px; bottom: auto; top: 10px;
+    width: 40px; height: 40px; font-size: 18px;
+  }
+
+  body.phone #sidebar {
+    top: auto; bottom: 0; left: 0; right: 0;
+    width: auto; max-height: min(64vh, 540px);
+    border-radius: 14px 14px 0 0;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  body.phone #sidebar.collapsed { width: auto; max-height: none; }
+  body.phone .sb-head {
+    position: sticky; top: -10px; z-index: 2;
+    margin-top: -10px; padding: 10px 0 8px;
+    background: var(--panel-solid);
+  }
+  body.phone .board2d { gap: 3px; }
+  body.phone .bcell { font-size: 11px; border-radius: 5px; }
+  body.phone.mode-analysis .bcell { font-size: 12px; }
+  body.phone .legend { font-size: 9.5px; gap: 3px 8px; }
+  body.phone #dist-detail { font-size: 11px; }
+
+  body.phone #score-panel { top: 8px; left: 8px; min-width: 0; padding: 6px 10px; }
+  body.phone #score { font-size: 26px; }
+  body.phone #target { font-size: 11px; }
+  body.phone #timer-panel { top: 8px; min-width: 0; padding: 6px 12px; }
+  body.phone #timer { font-size: 24px; }
+  body.phone #stage-label { font-size: 9px; }
+  body.phone #toast { top: 96px; font-size: 18px; }
+  body.phone #rupee-panel {
+    bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+    gap: 9px; padding: 6px 9px; align-items: center;
+  }
+  body.phone .rc { font-size: 12px; gap: 5px; }
+  body.phone .gem { width: 12px; height: 16px; }
+  body.phone #banner .big { font-size: 44px; }
+  body.phone #banner .sub { font-size: 13px; }
 </style>
 </head>
 <body class="mode-play">
@@ -273,6 +333,7 @@
   <div id="hint">Move <b>WASD</b>/arrows · <b>Space</b> or click to dig · drag to orbit · scroll to zoom</div>
   <div id="toast"></div>
   <div id="banner"></div>
+  <button id="view-fit" title="Recenter view" aria-label="Recenter view">&#8982;</button>
 </div>
 
 <aside id="sidebar">
