@@ -1,10 +1,8 @@
 /**
  * agent.js — Pure Greedy planner for the Thrill Digger browser game.
  *
- * A browser-native (ES module) port of the exact posterior counter and the
- * `PureGreedyAgent` from `thrillagent-rs`:
- *   - the hazard-layout transfer DP (also found in
- *     `thrillcounter_simplified_2x2.js`), with the game's no-2x2-hazard-block
+ * Computes the exact posterior over hidden boards and the Pure Greedy action:
+ *   - a hazard-layout transfer DP with the game's no-2x2-hazard-block
  *     rejection rule, and
  *   - the bomb/rupoor split that turns hazard layouts into the exact number of
  *     labelled boards in which a cell holds each content type.

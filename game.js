@@ -1,10 +1,8 @@
 /**
- * Thrill Digger — browser recreation.
+ * Thrill Digger — browser game.
  *
- * Gameplay and board-generation logic mirror the Skyward Sword decompilation
- * (src/REL/d/a/obj/d_a_obj_hole_minigame.cpp). The mound and dug-hole meshes
- * plus their textures are the original assets extracted from SOUE01
- * (ObjectPack.arc -> MoundShovel.arc / HoleShovel.arc -> g3d/model.brres).
+ * Renders the board, handles input, and drives the game loop plus the
+ * analysis/agent UI.
  */
 import * as THREE from 'three';
 
@@ -78,7 +76,7 @@ function paletteColor(cls) {
 }
 
 /* ------------------------------------------------------------------ *
- *  Timing (frames @ 60 fps, from the decompilation)
+ *  Timing (frames @ 60 fps)
  * ------------------------------------------------------------------ */
 const PLAY_FRAMES = 18000;      // 5 minutes
 const WARN_FRAMES = 1800;       // 30 seconds left
@@ -325,9 +323,9 @@ class ThrillDigger {
       new THREE.TextureLoader().load(texBase + name, resolve, undefined, reject);
     });
 
-    // Original stage ground texture (F211 arena: C_Ground02 / A_Ground02).
+    // Ground texture, with a procedural fallback.
     try {
-      this.applyGroundTexture(await loadTex('F211_Ground02.png'));
+      this.applyGroundTexture(await loadTex('ground.png'));
     } catch (err) {
       console.warn('Ground texture unavailable, using procedural fallback', err);
       this.applyGroundTexture(this.makeGroundTexture());
@@ -1638,9 +1636,7 @@ class ThrillDigger {
       <div class="diffs">${diffs}</div>
       <button class="primary" id="start">Start digging</button>
       <div class="credits">
-        Board logic ported from the SOUE01 decompilation of
-        <code>d_a_obj_hole_minigame.cpp</code>. Mound &amp; hole models/textures extracted from the
-        original ROM. Fan project — all original assets © Nintendo.
+        Thrill Digger — dig for rupees, dodge the bombs.
       </div>
     `;
     document.querySelectorAll('.diff').forEach((el) => {

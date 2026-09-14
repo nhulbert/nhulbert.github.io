@@ -1,9 +1,9 @@
 /**
  * Board generation for the Thrill Digger minigame.
  *
- * A direct port of fillHoles()/placeBombs()/placeRupoors()/fillRupees() from
- * The Legend of Zelda: Skyward Sword (SOUE01) decompilation:
- * src/REL/d/a/obj/d_a_obj_hole_minigame.cpp
+ * Places the bombs and rupoors, rejects layouts containing a 2x2 block of
+ * hazards, and assigns each remaining cell a rupee tier from the number of
+ * adjacent hazards.
  */
 
 export const CONTENT = Object.freeze({
