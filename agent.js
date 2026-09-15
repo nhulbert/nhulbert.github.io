@@ -437,7 +437,13 @@ export function buildPosterior(observedRowMajor, rows, cols, numBads, totalRupoo
   };
 }
 
-/** Expected immediate value of digging a cell with the given content counts. */
+/**
+ * Expected immediate value of digging a cell with the given content counts.
+ *
+ * `bombPenalty` is added once per bomb-weighted board, so a negative value
+ * charges the cost of hitting a bomb (e.g. `-variant.fee`, the price of starting
+ * a new round). It defaults to `0`, which is the reference Pure Greedy rule.
+ */
 export function cellExpectedValue(counts, bombPenalty = 0) {
   const num =
     counts[AGENT.RUPOOR] * -10 +
@@ -456,6 +462,9 @@ export function cellExpectedValue(counts, bombPenalty = 0) {
  * Pure Greedy: the cell with the greatest expected immediate value among the
  * legal actions. Returns the value, the EV of every cell, and every tied-best
  * action (so the UI can highlight all of them).
+ *
+ * Every dig has the same turn cost, so it does not affect the ranking; the only
+ * action-dependent term is `bombPenalty` (see `cellExpectedValue`).
  */
 export function pureGreedy(posterior, legalActions, bombPenalty = 0) {
   const n = posterior.rows * posterior.cols;

@@ -694,8 +694,12 @@ class ThrillDigger {
     if (isObservableValid(post)) {
       const legal = [];
       for (let i = 0; i < observed.length; i++) if (observed[i] === OBS.UNDUG) legal.push(i);
-      this.agentResult = pureGreedy(post, legal);
+      // Hitting a bomb ends the round and costs the entry fee to play again, so
+      // charge that fee against every bomb-weighted board when ranking digs.
+      this.bombPenalty = -variant.fee;
+      this.agentResult = pureGreedy(post, legal, this.bombPenalty);
     } else {
+      this.bombPenalty = 0;
       this.agentResult = null;
     }
   }
@@ -818,13 +822,15 @@ class ThrillDigger {
     const show = this.mode === 'analysis' || this.show.agent;
     if (!show || !this.agentResult) { el.textContent = ''; return; }
     const { bestValue, best } = this.agentResult;
+    const fee = -(this.bombPenalty || 0);
+    const feeNote = fee > 0 ? ` \u00B7 net of ${fee}-rupee bomb cost` : '';
     if (!best.length || bestValue <= 0) {
-      el.textContent = 'Pure Greedy: stop \u2014 no dig has positive expected value.';
+      el.textContent = `Pure Greedy: stop \u2014 no dig has positive net expected value${feeNote}.`;
       return;
     }
     const variant = this.activeVariant();
     const coords = best.map((i) => `(${Math.floor(i / variant.cols)}, ${i % variant.cols})`);
-    el.textContent = `Pure Greedy: dig ${coords.join(' or ')} \u00B7 EV ${bestValue.toFixed(3)}`;
+    el.textContent = `Pure Greedy: dig ${coords.join(' or ')} \u00B7 net EV ${bestValue.toFixed(3)}${feeNote}`;
   }
 
   renderAnalysisStatus() {
@@ -874,7 +880,9 @@ class ThrillDigger {
     let evLine = '';
     if (this.agentResult) {
       const ev = this.agentResult.ev[i];
-      evLine = `<div class="muted">expected value ${ev.toFixed(3)}`
+      const fee = -(this.bombPenalty || 0);
+      evLine = `<div class="muted">net expected value ${ev.toFixed(3)}`
+        + `${fee > 0 ? ` (bomb costs ${fee})` : ''}`
         + `${this.agentResult.best.includes(i) ? ' \u00B7 recommended' : ''}</div>`;
     }
 
